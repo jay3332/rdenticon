@@ -1,0 +1,18 @@
+[package]
+name = "rdenticon"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+sha1_smol = "1"
+
+[dependencies.ril]
+git = "https://github.com/jay3332/ril"
+branch = "master"
+version = "0.9"
+default-features = false
+
+[features]
+default = ["ril/png"]
