@@ -1,4 +1,4 @@
-use ril::{Rgb, Rgba};
+use ril::Rgb;
 
 fn hsl_to_raw_rgbf(h: f64, s: f64, l: f64) -> (f64, f64, f64) {
     // Optimize for grayscale
