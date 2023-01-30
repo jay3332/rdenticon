@@ -16,7 +16,6 @@ fn hsl_to_raw_rgbf(h: f64, s: f64, l: f64) -> (f64, f64, f64) {
         180..=239 => (0.0, x, c),
         240..=299 => (x, 0.0, c),
         300.. => (c, 0.0, x),
-        _ => unreachable!(),
     };
     let m = l - c / 2.0;
     (r + m, g + m, b + m)
