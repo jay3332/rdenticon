@@ -13,7 +13,7 @@ sha1_smol = "1"
 
 [dependencies.ril]
 git = "https://github.com/jay3332/ril"
-branch = "master"
+branch = "main"
 version = "0.9"
 default-features = false
 
