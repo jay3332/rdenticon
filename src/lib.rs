@@ -2,7 +2,7 @@
     clippy::cast_precision_loss,
     clippy::cast_lossless,
     clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
+    clippy::cast_sign_loss
 )]
 
 mod config;
@@ -10,7 +10,7 @@ mod hsl;
 
 pub use config::*;
 use hsl::corrected_hsl_to_rgb;
-use ril::*;
+use ril::prelude::*;
 pub use ril::{self, ImageFormat};
 
 /// Colors used by an identicon.
@@ -50,16 +50,16 @@ impl Config {
     /// is expected to be in the range `[0.0, 1.0]`.
     #[inline]
     pub(crate) fn resolve_color_lightness(&self, lightness: f64) -> f64 {
-        self.color_lightness.start()
-            + (self.color_lightness.end() - self.color_lightness.start()) * lightness
+        (self.color_lightness.end() - self.color_lightness.start())
+            .mul_add(lightness, *self.color_lightness.start())
     }
 
     /// Retrieves a grayscale lightness that conforms to the configured lightness range. The
     /// lightness is expected to be in the range `[0.0, 1.0]`.
     #[inline]
     pub(crate) fn resolve_grayscale_lightness(&self, lightness: f64) -> f64 {
-        self.grayscale_lightness.start()
-            + (self.grayscale_lightness.end() - self.grayscale_lightness.start()) * lightness
+        (self.grayscale_lightness.end() - self.grayscale_lightness.start())
+            .mul_add(lightness, *self.grayscale_lightness.start())
     }
 
     /// Retrieves a set of color candidates that conform to this configuration.
@@ -472,7 +472,13 @@ pub fn render_identicon(hash: [u8; 20], config: &Config) -> Image<Rgba> {
 
     let mut renderer = ShapeRenderer::new(&mut image);
     macro_rules! render {
-        ($shape_index:literal, $rotation_index:expr, $color:ident, $render_fn:ident, $render_positions:ident) => {
+        (
+            $shape_index:literal,
+            $rotation_index:expr,
+            $color:ident,
+            $render_fn:ident,
+            $render_positions:ident
+        ) => {
             render_shape(
                 &hash,
                 $shape_index,
@@ -517,6 +523,7 @@ pub fn render_identicon(hash: [u8; 20], config: &Config) -> Image<Rgba> {
 ///     let config = rdenticon::Config::builder()
 ///         .size(256) // Generate a 256x256 image
 ///         .padding(0.1) // Add a 10% padding
+///         .background_color(rdenticon::Rgba::transparent()) // Make the background transparent
 ///         .build()
 ///         .expect("invalid config");
 ///
@@ -536,4 +543,23 @@ pub fn render_identicon(hash: [u8; 20], config: &Config) -> Image<Rgba> {
 pub fn generate_identicon(message: impl AsRef<str>, config: &Config) -> Image<Rgba> {
     let hash = sha1_smol::Sha1::from(message.as_ref()).digest().bytes();
     render_identicon(hash, config)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rdenticon() -> ril::Result<()> {
+        // Build configuration
+        let config = Config::builder()
+            .size(256) // Generate a 256x256 image
+            .padding(0.1) // Add a 10% padding
+            .background_color(Rgba::transparent()) // Make the background transparent
+            .build()
+            .expect("invalid config");
+
+        let image = generate_identicon("jay3332", &config);
+        image.save_inferred("identicon.png")
+    }
 }

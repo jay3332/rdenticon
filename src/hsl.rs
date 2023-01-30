@@ -6,7 +6,7 @@ fn hsl_to_raw_rgbf(h: f64, s: f64, l: f64) -> (f64, f64, f64) {
         return (l, l, l);
     }
 
-    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let c = (1.0 - 2.0_f64.mul_add(l, -1.0).abs()) * s;
     let x = c * (1.0 - ((h / 60.0).rem_euclid(2.0) - 1.0).abs());
 
     let (r, g, b) = match h.rem_euclid(360.0) as u16 {
@@ -25,7 +25,7 @@ fn hsl_to_raw_rgbf(h: f64, s: f64, l: f64) -> (f64, f64, f64) {
 ///
 /// Assumes `h` is within the range `[0.0, 360.0)` and `s`, and `l` are within the range
 /// `[0.0, 1.0]`.
-pub(crate) fn hsl_to_rgb(h: f64, s: f64, l: f64) -> Rgb {
+pub fn hsl_to_rgb(h: f64, s: f64, l: f64) -> Rgb {
     let (r, g, b) = hsl_to_raw_rgbf(h, s, l);
     Rgb::new(
         (r * 255.0).round() as u8,
@@ -48,7 +48,7 @@ pub fn corrected_hsl_to_rgb(h: f64, s: f64, l: f64) -> Rgb {
     let l = if l < 0.5 {
         l * corrector * 2.0
     } else {
-        corrector + (l - 0.5) * (1.0 - corrector) * 2.0
+        ((l - 0.5) * (1.0 - corrector)).mul_add(2.0, corrector)
     };
 
     hsl_to_rgb(h, s, l)
