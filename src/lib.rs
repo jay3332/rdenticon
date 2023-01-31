@@ -30,8 +30,7 @@ impl ColorCandidates {
             1 => self.mid_color,
             2 => self.light_gray,
             3 => self.light_color,
-            4 => self.dark_color,
-            _ => unreachable!(),
+            _ /* 4 */ => self.dark_color,
         }
     }
 }
@@ -114,8 +113,7 @@ impl Transform {
             0 => (self.x + x, self.y + y),
             1 => (self.right - y - h, self.y + x),
             2 => (self.right - x - w, self.bottom - y - h),
-            3 => (self.x + y, self.bottom - x - w),
-            _ => unreachable!(),
+            _ /* 3 */ => (self.x + y, self.bottom - x - w),
         }
     }
 }
@@ -213,17 +211,33 @@ fn pad_zeroes<const FROM: usize, const TO: usize>(arr: [u8; FROM]) -> [u8; TO] {
     b
 }
 
+fn into_nibbles(hash: [u8; 20]) -> [u8; 40] {
+    let mut nibbles = [0; 40];
+    for i in 0..20 {
+        nibbles[i * 2] = hash[i] >> 4;
+        nibbles[i * 2 + 1] = hash[i] & 0x0f;
+    }
+    nibbles
+}
+
 #[inline]
-fn hash_substring_u64<const LEN: usize>(hash: &[u8; 20], start: usize) -> u64 {
-    u64::from_be_bytes(pad_zeroes::<LEN, 8>(unsafe {
+fn hash_substring_u64<const LEN: usize>(nibbles: &[u8; 40], start: usize) -> u64 {
+    let nibbles = pad_zeroes::<LEN, 8>(unsafe {
         // SAFETY: The hash is always 20 bytes long
-        hash[start..start + LEN].try_into().unwrap_unchecked()
-    }))
+        nibbles[start..start + LEN].try_into().unwrap_unchecked()
+    });
+    // Join nibbles back into bytes
+    let mut bytes = [0; 4];
+    for i in 0..4 {
+        bytes[i] = nibbles[i * 2] << 4 | nibbles[i * 2 + 1];
+    }
+
+    u64::from_be_bytes(pad_zeroes::<4, 8>(bytes))
 }
 
 #[allow(clippy::too_many_arguments)]
 fn render_shape(
-    hash: &[u8; 20],
+    hash: &[u8; 40],
     shape_index: usize,
     rotation_index: Option<usize>,
     renderer: &mut ShapeRenderer,
@@ -330,7 +344,7 @@ fn render_center(
         }
         5 => {
             let inner = cell_size / 10;
-            let outer = inner * 4; // TODO: there is precision loss here
+            let outer = (cell_size as f64 * 0.4) as u32;
 
             renderer
                 .rectangle(color, (0, 0), (cell_size, cell_size))
@@ -362,15 +376,17 @@ fn render_center(
         }
         7 | 11 => {
             let half_cell = cell_size / 2;
-            renderer.triangle::<3>(color, (half_cell, half_cell), (half_cell, half_cell));
+            let diff = cell_size - half_cell;
+            renderer.triangle::<3>(color, (half_cell, half_cell), (diff, diff));
         }
         8 => {
             let half_cell = cell_size / 2;
+            let diff = cell_size - half_cell;
 
             renderer
-                .rectangle(color, (0, 0), (cell_size, half_cell))
-                .rectangle(color, (0, half_cell), (half_cell, half_cell))
-                .triangle::<1>(color, (half_cell, half_cell), (half_cell, half_cell));
+                .rectangle(color, (0, 0), (cell_size, diff))
+                .rectangle(color, (0, half_cell), (diff, diff))
+                .triangle::<1>(color, (half_cell, half_cell), (diff, diff));
         }
         9 => {
             let inner = (cell_size as f64 * 0.14) as u32;
@@ -436,9 +452,7 @@ pub fn render_identicon(hash: [u8; 20], config: &Config) -> Image<Rgba> {
         (3, 2),
         (0, 2),
     ];
-
     const CORNER_POSITIONS: [(u32, u32); 4] = [(0, 0), (3, 0), (3, 3), (0, 3)];
-
     const CENTER_POSITIONS: [(u32, u32); 4] = [(1, 1), (2, 1), (2, 2), (1, 2)];
 
     let mut image = Image::new(config.size, config.size, config.background_color);
@@ -449,6 +463,7 @@ pub fn render_identicon(hash: [u8; 20], config: &Config) -> Image<Rgba> {
     let cell = size / 4;
     let offset = padding + size / 2 - cell * 2;
 
+    let hash = into_nibbles(hash);
     let hue = 360.0 * hash_substring_u64::<7>(&hash, 13) as f64 / 0xfffffff as f64;
     let color_candidates = config.color_candidates(hue);
 
@@ -521,7 +536,7 @@ pub fn render_identicon(hash: [u8; 20], config: &Config) -> Image<Rgba> {
 /// fn main() -> rdenticon::ril::Result<()> {
 ///     // Build configuration
 ///     let config = rdenticon::Config::builder()
-///         .size(256) // Generate a 256x256 image
+///         .size(512) // Generate a 512x512 image
 ///         .padding(0.1) // Add a 10% padding
 ///         .background_color(rdenticon::Rgba::transparent()) // Make the background transparent
 ///         .build()
@@ -553,9 +568,9 @@ mod tests {
     fn test_rdenticon() -> ril::Result<()> {
         // Build configuration
         let config = Config::builder()
-            .size(256) // Generate a 256x256 image
+            .size(512) // Generate a 512x512 image
             .padding(0.1) // Add a 10% padding
-            .background_color(Rgba::transparent()) // Make the background transparent
+            .background_color(Rgba::transparent())
             .build()
             .expect("invalid config");
 
