@@ -229,22 +229,20 @@ pub enum ConfigBuilderError {
 
 impl fmt::Display for ConfigBuilderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidHues => write!(f, "hues must be within the range [0.0, 360.0)"),
-            Self::InvalidColorLightness => {
-                write!(f, "color lightness must be within the range 0.0..=1.0")
-            }
+        let content = match self {
+            Self::InvalidHues => "hues must be within the range [0.0, 360.0)",
+            Self::InvalidColorLightness => "color lightness must be within the range 0.0..=1.0",
             Self::InvalidGrayscaleLightness => {
-                write!(f, "grayscale lightness must be within the range 0.0..=1.0")
+                "grayscale lightness must be within the range 0.0..=1.0"
             }
-            Self::InvalidColorSaturation => {
-                write!(f, "color saturation must be within the range [0.0, 1.0]")
-            }
-            Self::InvalidGrayscaleSaturation => write!(
-                f,
+            Self::InvalidColorSaturation => "color saturation must be within the range [0.0, 1.0]",
+            Self::InvalidGrayscaleSaturation => {
                 "grayscale saturation must be within the range [0.0, 1.0]"
-            ),
-            Self::InvalidPadding => write!(f, "padding must be within the range [0.0, 0.5]"),
-        }
+            }
+            Self::InvalidPadding => "padding must be within the range [0.0, 0.5]",
+        };
+        f.write_str(content)
     }
 }
+
+impl std::error::Error for ConfigBuilderError {}

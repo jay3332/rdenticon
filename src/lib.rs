@@ -108,7 +108,7 @@ impl Transform {
         }
     }
 
-    pub(crate) fn transform(&self, (x, y): (u32, u32), (w, h): (u32, u32)) -> (u32, u32) {
+    pub(crate) const fn transform(&self, (x, y): (u32, u32), (w, h): (u32, u32)) -> (u32, u32) {
         match self.rotation {
             0 => (self.x + x, self.y + y),
             1 => (self.right - y - h, self.y + x),
@@ -207,7 +207,7 @@ impl<'a> ShapeRenderer<'a> {
 #[inline]
 fn pad_zeroes<const FROM: usize, const TO: usize>(arr: [u8; FROM]) -> [u8; TO] {
     let mut b = [0; TO];
-    b[..FROM].copy_from_slice(&arr);
+    b[TO - FROM..].copy_from_slice(&arr);
     b
 }
 
@@ -221,7 +221,7 @@ fn into_nibbles(hash: [u8; 20]) -> [u8; 40] {
 }
 
 #[inline]
-fn hash_substring_u64<const LEN: usize>(nibbles: &[u8; 40], start: usize) -> u64 {
+fn hash_substring_u32<const LEN: usize>(nibbles: &[u8; 40], start: usize) -> u32 {
     let nibbles = pad_zeroes::<LEN, 8>(unsafe {
         // SAFETY: The hash is always 20 bytes long
         nibbles[start..start + LEN].try_into().unwrap_unchecked()
@@ -232,7 +232,7 @@ fn hash_substring_u64<const LEN: usize>(nibbles: &[u8; 40], start: usize) -> u64
         bytes[i] = nibbles[i * 2] << 4 | nibbles[i * 2 + 1];
     }
 
-    u64::from_be_bytes(pad_zeroes::<4, 8>(bytes))
+    u32::from_be_bytes(bytes)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -464,14 +464,24 @@ pub fn render_identicon(hash: [u8; 20], config: &Config) -> Image<Rgba> {
     let offset = padding + size / 2 - cell * 2;
 
     let hash = into_nibbles(hash);
-    let hue = 360.0 * hash_substring_u64::<7>(&hash, 13) as f64 / 0xfffffff as f64;
+    let hue = 360.0 * hash_substring_u32::<7>(&hash, 33) as f64 / 0xfffffff as f64;
     let color_candidates = config.color_candidates(hue);
 
-    let mut selected_indices = [0; 3];
+    let mut selected_indices = [!0; 3];
+    // `.contains` optimization
+    macro_rules! contains_opt {
+        ($value:literal) => {{
+            selected_indices[0] == $value
+                || selected_indices[1] == $value
+                || selected_indices[2] == $value
+        }};
+    }
+
     for i in 0..3 {
         let index = hash[i + 8] % 5;
         let index = match index {
-            0 | 2 | 3 | 4 if selected_indices.contains(&index) => 1,
+            0 | 4 if contains_opt!(0) || contains_opt!(4) => 1,
+            2 | 3 if contains_opt!(2) || contains_opt!(3) => 1,
             _ => index,
         };
 
@@ -570,7 +580,7 @@ mod tests {
         let config = Config::builder()
             .size(512) // Generate a 512x512 image
             .padding(0.1) // Add a 10% padding
-            .background_color(Rgba::transparent())
+            .background_color(Rgba::white())
             .build()
             .expect("invalid config");
 
