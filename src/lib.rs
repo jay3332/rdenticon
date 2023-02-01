@@ -179,11 +179,20 @@ impl<'a> ShapeRenderer<'a> {
         self
     }
 
-    pub fn rectangle(&mut self, color: Rgba, top_left: (u32, u32), size: (u32, u32)) -> &mut Self {
+    pub fn rectangle(
+        &mut self,
+        color: Rgba,
+        top_left: (u32, u32),
+        mut size: (u32, u32),
+    ) -> &mut Self {
         let (x, y) = self.current_transform.transform(top_left, size);
+        if self.current_transform.rotation & 1 == 1 {
+            std::mem::swap(&mut size.0, &mut size.1);
+        }
+
         let rect = Rectangle::new()
             .with_position(x, y)
-            .with_size(size.0, size.1)
+            .with_size(size.0, size.1 + 1)
             .with_fill(color);
 
         self.image.draw(&rect);
@@ -242,9 +251,10 @@ fn render_shape(
     rotation_index: Option<usize>,
     renderer: &mut ShapeRenderer,
     color: Rgba,
+    background_color: Rgba,
     cell_offset: u32,
     cell_size: u32,
-    render_fn: impl Fn(&mut ShapeRenderer, Rgba, u32, u8, usize),
+    render_fn: impl Fn(&mut ShapeRenderer, Rgba, Rgba, u32, u8, usize),
     render_positions: impl IntoIterator<Item = (u32, u32)>,
 ) {
     let mut rotation = rotation_index.map(|idx| hash[idx]).unwrap_or_default();
@@ -262,13 +272,14 @@ fn render_shape(
             );
             rotation += 1;
 
-            render_fn(renderer, color, cell_size, shape_index, i);
+            render_fn(renderer, color, background_color, cell_size, shape_index, i);
         });
 }
 
 fn render_outer(
     renderer: &mut ShapeRenderer,
     color: Rgba,
+    _background_color: Rgba,
     cell_size: u32,
     shape_index: u8,
     _position_index: usize,
@@ -288,6 +299,7 @@ fn render_outer(
 fn render_center(
     renderer: &mut ShapeRenderer,
     color: Rgba,
+    background_color: Rgba,
     cell_size: u32,
     shape_index: u8,
     position_index: usize,
@@ -349,7 +361,7 @@ fn render_center(
             renderer
                 .rectangle(color, (0, 0), (cell_size, cell_size))
                 .polygon(
-                    color,
+                    background_color,
                     [
                         (outer, outer),
                         (cell_size - inner, outer),
@@ -401,7 +413,7 @@ fn render_center(
             let p = cell_size - outer - inner;
             renderer
                 .rectangle(color, (0, 0), (cell_size, cell_size))
-                .rectangle(color, (outer, outer), (p, p));
+                .rectangle(background_color, (outer, outer), (p, p));
         }
         10 => {
             let inner = cell_size as f64 * 0.12;
@@ -410,7 +422,7 @@ fn render_center(
 
             renderer
                 .rectangle(color, (0, 0), (cell_size, cell_size))
-                .circle(color, (outer, outer), cell_size - inner - outer);
+                .circle(background_color, (outer, outer), cell_size - inner - outer);
         }
         12 => {
             let m = cell_size / 4;
@@ -418,7 +430,7 @@ fn render_center(
 
             renderer
                 .rectangle(color, (0, 0), (cell_size, cell_size))
-                .rectangle(color, (m, m), (p, p));
+                .rectangle(background_color, (m, m), (p, p));
         }
         13 if position_index == 0 => {
             let fcell = cell_size as f64;
@@ -510,6 +522,7 @@ pub fn render_identicon(hash: [u8; 20], config: &Config) -> Image<Rgba> {
                 $rotation_index,
                 &mut renderer,
                 $color,
+                config.background_color,
                 offset,
                 cell,
                 $render_fn,
@@ -584,7 +597,7 @@ mod tests {
             .build()
             .expect("invalid config");
 
-        let image = generate_identicon("jay3332", &config);
+        let image = generate_identicon("sample", &config);
         image.save_inferred("identicon.png")
     }
 }
