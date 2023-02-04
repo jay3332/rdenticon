@@ -28,4 +28,3 @@ rand = "0.8"
 name = "benchmarks"
 path = "benches/benchmarks.rs"
 harness = false
-
