@@ -19,3 +19,12 @@ default-features = false
 
 [features]
 default = ["ril/png"]
+
+[dev-dependencies]
+criterion = "0.4"
+rand = "0.8"
+
+[[bench]]
+name = "benchmarks"
+path = "benches/benchmarks.rs"
+harness = false
